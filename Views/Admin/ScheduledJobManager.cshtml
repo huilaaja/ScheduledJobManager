@@ -1,0 +1,162 @@
+﻿@inherits System.Web.WebPages.WebPage
+@using System.Configuration
+@using System.Data.Common
+@using System.Data.SqlClient
+@*
+    This is single file application. T
+*@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Scheduled Job Manager</title>
+
+    <script src="//code.jquery.com/jquery-2.1.1.min.js"></script>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+
+</head>
+<body style="margin: 30px;">
+<div class="container-fluid">
+
+    @if (Request.Params["action"] == "delete")
+    {
+        string response = DeleteScheduledJobs(new Guid(Request.Params["id"]));
+        <div class="panel panel-primary">
+            <div class="panel-heading">DELETE RESULT</div>
+            <div class="panel-body">
+                @response
+            </div>
+        </div>
+    }
+
+    <h1>Scheduled Job Manager</h1>
+    <div class="table-responsive">
+        <table class="table table-condensed table-hover">
+            <thead>
+            <tr>
+                <th style="min-width: 250px;">Name</th>
+                <th>Enabled</th>
+                <th>LastExec</th>
+                <th>LastStatus</th>
+                <th>LastText</th>
+                <th>TypeName</th>
+                <th>AssemblyName</th>
+                <th>Action</th>
+            </tr>
+            </thead>
+            <tbody>
+            @{
+                var jobs = GetScheduledJobs();
+            }
+            @foreach (var d in jobs)
+            {
+                Type type = Type.GetType(string.Format("{0}, {1}", d.TypeName, d.AssemblyName));
+                <tr class="@(type != null ? "" : "danger")">
+                    <td><b>@(d.Name)</b></td>
+                    <td>@(d.Enabled)</td>
+                    <td>@(d.LastExec)</td>
+                    <td>@(d.LastStatus)</td>
+                    <td>@Html.Raw(d.LastText)</td>
+                    <td>@(d.TypeName)</td>
+                    <td>@(d.AssemblyName)</td>
+                    <td>
+                        @if (type == null)
+                        {
+                            <a class="btn btn-sm btn-danger" href="@(string.Format("{0}?action=delete&Id={1}", Request.Url.AbsolutePath, d.PkId))">DELETE</a>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    <hr/>
+
+</div>
+</body>
+</html>
+
+
+@functions{
+
+    public List<ScheduledJob> GetScheduledJobs()
+    {
+        string sqlQuery = @"SELECT
+      i.pkID,
+      i.Name,
+      i.Enabled,
+      i.LastExec,
+      i.LastStatus,
+      i.LastText,
+      i.TypeName,
+      i.AssemblyName
+    FROM
+      [tblScheduledItem] as i
+    ORDER BY
+      AssemblyName,
+      Name ASC";
+
+        SqlConnection conn = new SqlConnection(ConfigurationManager.ConnectionStrings["EPiServerDB"].ConnectionString);
+        conn.Open();
+        SqlDataReader reader = new SqlCommand(sqlQuery, conn).ExecuteReader();
+        var queryResult = reader.Cast<DbDataRecord>()
+                                .Select(d => new ScheduledJob() {
+                                        PkId = ConvertFromDbVal<Guid>(d["pkID"]),
+                                        Name = ConvertFromDbVal<string>(d["Name"]),
+                                        Enabled = ConvertFromDbVal<bool>(d["Enabled"]),
+                                        LastExec = ConvertFromDbVal<DateTime>(d["LastExec"]),
+                                        LastStatus = ConvertFromDbVal<int>(d["LastStatus"]),
+                                        LastText = ConvertFromDbVal<string>(d["LastText"]),
+                                        TypeName = ConvertFromDbVal<string>(d["TypeName"]),
+                                        AssemblyName = ConvertFromDbVal<string>(d["AssemblyName"])
+                                    }
+                                )
+                                .ToList();
+        conn.Close();
+        return queryResult;
+    }
+
+    public static T ConvertFromDbVal<T>(object obj)
+    {
+        return (obj == null || obj == DBNull.Value)
+                ? default(T)
+                : (T)obj;
+    }
+
+
+    public string DeleteScheduledJobs(Guid pkId)
+    {
+        string sqlQuery1 = @"DELETE FROM [dbo].[tblScheduledItemLog] WHERE fkScheduledItemId = '" + pkId.ToString() + @"'";
+        string sqlQuery2 = @"DELETE FROM [dbo].[tblScheduledItem] WHERE pkId = '" + pkId.ToString() + @"'";
+
+        SqlConnection conn = new SqlConnection(ConfigurationManager.ConnectionStrings["EPiServerDB"].ConnectionString);
+        conn.Open();
+        int result1 = new SqlCommand(sqlQuery1, conn).ExecuteNonQuery();
+        int result2 = new SqlCommand(sqlQuery2, conn).ExecuteNonQuery();
+        conn.Close();
+        return string.Format("DELETED {0} items from table tblScheduledItemLog and  {1} items from table tblScheduledItem.", result1, result2);
+    }
+
+    public class ScheduledJob
+    {
+        public Guid PkId{ get; set; }
+        public string Name{ get; set; }
+        public bool Enabled{ get; set; }
+        public DateTime LastExec{ get; set; }
+        public int LastStatus{ get; set; }
+        public string LastText{ get; set; }
+        public string TypeName{ get; set; }
+        public string AssemblyName{ get; set; }
+    }
+}
