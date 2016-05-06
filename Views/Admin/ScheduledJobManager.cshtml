@@ -8,7 +8,9 @@
 *@
 @{
     var currentUser = ClaimsPrincipal.Current;
-    if (!currentUser.IsInRole("WebAdmins")){
+    if (!(currentUser.IsInRole("WebAdmins") || 
+          currentUser.IsInRole("CmsAdmins") ||
+          currentUser.IsInRole("Administrators"))){
        return;
     }
 }
