@@ -2,9 +2,16 @@
 @using System.Configuration
 @using System.Data.Common
 @using System.Data.SqlClient
+@using System.Security.Claims
 @*
-    This is single file application. T
+    This is single file application. 
 *@
+@{
+    var currentUser = ClaimsPrincipal.Current;
+    if (!currentUser.IsInRole("WebAdmins")){
+       return;
+    }
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
