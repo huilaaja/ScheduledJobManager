@@ -7,11 +7,12 @@
     This is single file application. 
 *@
 @{
-    var currentUser = ClaimsPrincipal.Current;
-    if (!(currentUser.IsInRole("WebAdmins") || 
-          currentUser.IsInRole("CmsAdmins") ||
-          currentUser.IsInRole("Administrators"))){
-       return;
+    if (!(User.IsInRole("WebAdmins") || User.IsInRole("CmsAdmins") || User.IsInRole("Administrators")))
+    {
+        Response.ClearContent();
+        Response.Write("Access Denied because user is not an administrator.");
+        Response.StatusCode = (int)HttpStatusCode.Forbidden;
+        return;
     }
 }
 <!DOCTYPE html>
